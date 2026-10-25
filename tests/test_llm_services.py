@@ -1,5 +1,6 @@
 """Regression tests for MCP authorization and multi-mesh action routing."""
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -9,14 +10,17 @@ from homeassistant.core import Context
 from homeassistant.core import SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import entity_registry
 from homeassistant.helpers import llm
 import probatio
 import pytest
 
+from custom_components import tplink_deco as integration
 from custom_components.tplink_deco.const import CONF_ENABLE_AGENT_CONTROL
 from custom_components.tplink_deco.const import COORDINATOR_CLIENTS_KEY
 from custom_components.tplink_deco.const import COORDINATOR_DECOS_KEY
 from custom_components.tplink_deco.const import DOMAIN
+from custom_components.tplink_deco.const import PLATFORMS
 from custom_components.tplink_deco.llm import DecoAPI
 from custom_components.tplink_deco.llm import DecoTool
 from custom_components.tplink_deco.services import ACTION_FIELDS
@@ -323,3 +327,86 @@ def test_domain_actions_survive_until_last_mesh_unloads(hass):
         (DOMAIN, name)
         for name in (*ACTION_FIELDS, "reboot_deco", "pause_polling", "resume_polling")
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_entry_startup_uses_real_ha_llm_registration_and_unload(enabled):
+    """The integration's llm submodule must not replace HA's registry helper."""
+    startup_hass = MagicMock()
+    startup_hass.data = {}
+    startup_hass.config_entries.async_forward_entry_setups = AsyncMock()
+    startup_hass.config_entries.async_forward_entry_unload = AsyncMock(
+        return_value=True
+    )
+    startup_hass.services.has_service.return_value = False
+    registry = SimpleNamespace(
+        entities=SimpleNamespace(
+            get_entries_for_config_entry_id=MagicMock(return_value=[])
+        )
+    )
+    startup_hass.data[entity_registry.DATA_REGISTRY] = registry
+    mesh = make_mesh(FIRST_MAC)
+    mesh[COORDINATOR_DECOS_KEY].async_close = AsyncMock()
+    mesh[COORDINATOR_CLIENTS_KEY].async_close = AsyncMock()
+    unload_callbacks = []
+    background_tasks = []
+    unsubscribe_listener = MagicMock()
+
+    def create_background_task(_hass, coroutine, **kwargs):
+        task = asyncio.create_task(coroutine)
+        background_tasks.append(task)
+        return task
+
+    entry = SimpleNamespace(
+        entry_id="startup-entry",
+        title="Test mesh",
+        data={CONF_ENABLE_AGENT_CONTROL: enabled},
+        async_on_unload=unload_callbacks.append,
+        add_update_listener=MagicMock(return_value=unsubscribe_listener),
+        async_create_background_task=MagicMock(side_effect=create_background_task),
+    )
+    try:
+        # Keep the actual setup function, entity-registry helpers, service
+        # registration and HA LLM registry active: mocking registration itself
+        # would miss the package's same-named llm submodule collision.
+        with patch.object(
+            integration,
+            "async_create_config_data",
+            new_callable=AsyncMock,
+            return_value=mesh,
+        ) as create_data:
+            assert await integration.async_setup_entry(startup_hass, entry)
+        await asyncio.gather(*background_tasks)
+        create_data.assert_awaited_once_with(startup_hass, entry)
+        startup_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
+            entry, PLATFORMS
+        )
+        mesh[COORDINATOR_CLIENTS_KEY].async_request_refresh.assert_awaited_once_with()
+        entry.add_update_listener.assert_called_once_with(integration.update_listener)
+
+        apis = llm.async_get_apis(startup_hass)
+        if enabled:
+            assert len(apis) == 1
+            assert isinstance(apis[0], DecoAPI)
+            assert apis[0].id == f"{DOMAIN}_{entry.entry_id}"
+            assert apis[0].hass is startup_hass
+        else:
+            assert apis == []
+
+        assert await integration.async_unload_entry(startup_hass, entry)
+        assert startup_hass.data[DOMAIN] == {}
+        mesh[COORDINATOR_DECOS_KEY].async_close.assert_awaited_once_with()
+        mesh[COORDINATOR_CLIENTS_KEY].async_close.assert_awaited_once_with()
+        assert (
+            startup_hass.config_entries.async_forward_entry_unload.await_count
+            == len(PLATFORMS)
+        )
+    finally:
+        if background_tasks:
+            await asyncio.gather(*background_tasks)
+        # ConfigEntry runs these callbacks after successful integration unload.
+        for callback in unload_callbacks:
+            callback()
+    assert llm.async_get_apis(startup_hass) == []
+    unsubscribe_listener.assert_called_once_with()

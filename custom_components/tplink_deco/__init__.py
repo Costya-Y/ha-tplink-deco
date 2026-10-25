@@ -21,7 +21,7 @@ from homeassistant.const import CONF_PASSWORD
 from homeassistant.const import CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry
-from homeassistant.helpers import llm
+from homeassistant.helpers import llm as ha_llm
 from homeassistant.helpers import restore_state
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntry
@@ -224,7 +224,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     async_register_services(hass)
     if config_entry.data.get(CONF_ENABLE_AGENT_CONTROL, False):
         config_entry.async_on_unload(
-            llm.async_register_api(hass, DecoAPI(hass, config_entry))
+            ha_llm.async_register_api(hass, DecoAPI(hass, config_entry))
         )
 
     config_entry.async_on_unload(config_entry.add_update_listener(update_listener))

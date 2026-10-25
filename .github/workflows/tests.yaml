@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - run: pip install -r requirements.txt pycryptodome async-timeout
-      - run: pytest -o addopts='' -q tests
+      - run: python -m pytest -o addopts='' -q tests
 
   pre-commit:
     runs-on: ubuntu-latest
