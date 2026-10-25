@@ -11,3 +11,339 @@ reboot_deco:
           integration: tplink_deco
           manufacturer: TP-Link Deco
           multiple: true
+query:
+  name: Query
+  description:
+    Read a Deco feature. Use catalogue for documented operations (not detected
+    support), inventory for cached mesh/firmware/clients. Credentials are redacted.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    feature:
+      name: Feature
+      required: true
+      selector:
+        select:
+          options:
+            - catalogue
+            - inventory
+            - wlan
+            - fast_roaming
+            - beamforming
+            - ofdma
+            - wireless_power
+            - wireless_support
+            - mlo_network
+            - wifi_schedule
+            - bandwidth_enhance
+            - bandwidth_switch
+            - backhaul_optimization
+            - network_optimize
+            - devices
+            - device_mode
+            - led
+            - eco_mode
+            - time_settings
+            - speed_test
+            - clients
+            - blocked_clients
+            - reservations
+            - client_isolation
+            - dhcp_leases
+            - internet
+            - performance
+            - wan
+            - lan
+            - ipv6
+            - vlan
+            - upnp
+            - static_routes
+            - dhcp
+            - qos
+            - qos_bandwidth
+            - parental_profiles
+            - parental_clients
+            - parental_filters
+            - port_forwarding
+            - dmz
+            - ddns
+            - vpn_client
+            - vpn_server
+            - ipv6_firewall
+            - iptv
+    operation:
+      name: Operation
+      required: false
+      selector:
+        text: {}
+    params_json:
+      name: Params Json
+      required: false
+      selector:
+        text:
+          multiline: true
+      default: "{}"
+configure:
+  name: Configure
+  description:
+    Apply a documented Deco operation using params_json. Read the feature
+    first. Firmware-specific payloads are required. May disrupt connectivity. An accepted
+    reply is not verification; query the result. Never automatically repeat a failed
+    write.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    feature:
+      name: Feature
+      required: true
+      selector:
+        select:
+          options:
+            - wlan
+            - fast_roaming
+            - beamforming
+            - ofdma
+            - wireless_power
+            - wireless_support
+            - mlo_network
+            - wifi_schedule
+            - bandwidth_enhance
+            - bandwidth_switch
+            - backhaul_optimization
+            - network_optimize
+            - devices
+            - device_mode
+            - led
+            - eco_mode
+            - time_settings
+            - speed_test
+            - clients
+            - blocked_clients
+            - reservations
+            - client_isolation
+            - dhcp_leases
+            - internet
+            - performance
+            - wan
+            - lan
+            - ipv6
+            - vlan
+            - upnp
+            - static_routes
+            - dhcp
+            - qos
+            - qos_bandwidth
+            - parental_profiles
+            - parental_clients
+            - parental_filters
+            - port_forwarding
+            - dmz
+            - ddns
+            - vpn_client
+            - vpn_server
+            - ipv6_firewall
+            - iptv
+    operation:
+      name: Operation
+      required: true
+      selector:
+        text: {}
+    params_json:
+      name: Params Json
+      required: false
+      selector:
+        text:
+          multiline: true
+      default: "{}"
+block_client:
+  name: Block Client
+  description:
+    Block internet access for one client MAC; name labels the entry. Reads
+    back the blocklist to verify. Can disconnect devices and agents.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    mac:
+      name: Mac
+      required: true
+      selector:
+        text: {}
+    name:
+      name: Name
+      required: true
+      selector:
+        text: {}
+    client_type:
+      name: Client Type
+      required: false
+      selector:
+        text: {}
+      default: other
+unblock_client:
+  name: Unblock Client
+  description: Unblock one client MAC and read back the blocklist to verify.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    mac:
+      name: Mac
+      required: true
+      selector:
+        text: {}
+rename_client:
+  name: Rename Client
+  description:
+    Rename one known client, optionally changing its client_type. Acknowledgement
+    only; query clients to verify.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    mac:
+      name: Mac
+      required: true
+      selector:
+        text: {}
+    name:
+      name: Name
+      required: true
+      selector:
+        text: {}
+    client_type:
+      name: Client Type
+      required: false
+      selector:
+        text: {}
+set_reservation:
+  name: Set Reservation
+  description:
+    Add or change a fixed IPv4 reservation for a MAC; read back the reservation
+    table to verify.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    mac:
+      name: Mac
+      required: true
+      selector:
+        text: {}
+    ip:
+      name: Ip
+      required: true
+      selector:
+        text: {}
+remove_reservation:
+  name: Remove Reservation
+  description: Remove a fixed IPv4 reservation for a MAC; read back the table to verify.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    mac:
+      name: Mac
+      required: true
+      selector:
+        text: {}
+set_wifi:
+  name: Set Wifi
+  description:
+    Enable or disable main, guest, IoT or MLO Wi-Fi. Specify band for main/guest;
+    omit it for IoT/MLO. Changes may disconnect HA or agents. Acknowledgement only;
+    query wlan to verify.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    network:
+      name: Network
+      required: true
+      selector:
+        select:
+          options:
+            - main
+            - guest
+            - iot
+            - mlo
+    enabled:
+      name: Enabled
+      required: true
+      selector:
+        boolean: {}
+    band:
+      name: Band
+      required: false
+      selector:
+        select:
+          options:
+            - band2_4
+            - band5_1
+            - band5_2
+            - band6
+            - band6_2
+reboot:
+  name: Reboot
+  description:
+    Reboot exactly one Deco node by MAC from inventory. Interrupts connectivity.
+    Sends once; no automatic retry.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    mac:
+      name: Mac
+      required: true
+      selector:
+        text: {}
+set_polling:
+  name: Set Polling
+  description: Pause or resume integration polling for this mesh.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      description: Optional with one loaded mesh; required with multiple meshes.
+      selector:
+        text: {}
+    enabled:
+      name: Enabled
+      required: true
+      selector:
+        boolean: {}
+pause_polling:
+  name: Pause Polling
+  description: Control polling for one Deco mesh.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      selector:
+        text: {}
+resume_polling:
+  name: Resume Polling
+  description: Control polling for one Deco mesh.
+  fields:
+    entry_id:
+      name: Integration entry ID
+      selector:
+        text: {}

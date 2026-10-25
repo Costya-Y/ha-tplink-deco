@@ -125,13 +125,17 @@ def aes_decrypt(key: bytes, iv: bytes, plaintext: bytes) -> bytes:
 
 
 def check_data_error_code(context, data):
-    error_code = data.get("error_code") or data.get("errorcode")
-    if error_code:
+    for field in ("error_code", "errorcode"):
+        error_code = data.get(field)
+        if error_code in (None, 0, "0", ""):
+            continue
         if error_code == "timeout":
             raise TimeoutException(f'{context} response error_code="timeout"')
 
         _LOGGER.debug("%s error_code=%s", context, error_code)
         raise UnexpectedApiException(f"{context} error_code={error_code}")
+    if data.get("success") is False:
+        raise UnexpectedApiException(f"{context} was rejected by the router")
 
 
 class TplinkDecoApi:
@@ -188,6 +192,76 @@ class TplinkDecoApi:
             context = ssl.get_default_no_verify_context()
             self._ssl_context = context
 
+    async def async_request(
+        self,
+        controller: str,
+        form: str,
+        operation: str,
+        params: dict,
+        *,
+        read_only: bool = False,
+    ):
+        """Use the shared session for a local control request.
+
+        Only reads may be replayed after transport/authentication failures.
+        A lost write acknowledgement leaves its outcome unknown.
+        """
+        if not re.fullmatch(r"[a-z0-9_]+", controller) or not re.fullmatch(
+            r"[a-z0-9_]+", form
+        ):
+            raise ValueError("Invalid controller or form")
+        async with self._operation_lock:
+            if read_only:
+                return await self._async_call_with_retry(
+                    self._async_request, controller, form, operation, params
+                )
+            return await self._async_request(controller, form, operation, params)
+
+    async def _async_request(self, controller, form, operation, params):
+        """Send an encrypted request and accept encrypted or bare acknowledgements."""
+        await self.async_login_if_needed()
+        context = f"Control {controller}/{form} {operation}"
+        payload = {"operation": operation}
+        if params:
+            payload["params"] = params
+        try:
+            response = await self._async_post(
+                context,
+                f"{self._host}/cgi-bin/luci/;stok={self._stok}/admin/{controller}",
+                params={"form": form},
+                data=self._encode_payload(payload),
+            )
+        except aiohttp.ClientResponseError as err:
+            if err.status == 401:
+                raise ForbiddenException("Router session expired") from err
+            raise
+        if not isinstance(response, dict):
+            raise UnexpectedApiException("Router returned a malformed response")
+        check_data_error_code(context, response)
+        if (
+            isinstance(response.get("data"), dict)
+            and not any(
+                key in response["data"]
+                for key in ("error_code", "errorcode", "success", "result")
+            )
+            and any(key in response for key in ("error_code", "errorcode", "success"))
+        ):
+            # Some app handlers use a bare acknowledged `data` result rather
+            # than an encrypted envelope or the usual `result` property.
+            return response["data"]
+        if "data" in response:
+            data = self._decrypt_data(context, response["data"])
+        else:
+            data = response
+        if not isinstance(data, dict):
+            raise UnexpectedApiException("Router returned a malformed envelope")
+        check_data_error_code(context, data)
+        if not any(
+            key in data for key in ("error_code", "errorcode", "success", "result")
+        ):
+            raise UnexpectedApiException("Router did not acknowledge this operation")
+        return data.get("result", data.get("data", {}))
+
     # Return list of deco devices
     async def async_list_devices(self) -> dict:
         async with self._operation_lock:
@@ -229,23 +303,12 @@ class TplinkDecoApi:
             return await self._async_reboot_decos(deco_macs)
 
     async def _async_reboot_decos(self, deco_macs) -> dict:
-        await self.async_login_if_needed()
-
-        context = f"Reboot Decos {deco_macs}"
-        client_payload = {
-            "operation": "reboot",
-            "params": {"mac_list": [{"mac": mac} for mac in deco_macs]},
-        }
-        response_json = await self._async_post(
-            context,
-            f"{self._host}/cgi-bin/luci/;stok={self._stok}/admin/device",
-            params={"form": "system"},
-            data=self._encode_payload(client_payload),
+        return await self._async_request(
+            "device",
+            "system",
+            "reboot",
+            {"mac_list": [{"mac": mac} for mac in deco_macs]},
         )
-
-        data = self._decrypt_data(context, response_json["data"])
-        check_data_error_code(context, data)
-        _LOGGER.debug("Rebooted decos %s", deco_macs)
 
     # Return performance data (CPU / memory)
     async def async_get_performance(self) -> dict:
@@ -701,15 +764,7 @@ class TplinkDecoApi:
                         ) from err
                 else:
                     response_json = await response.json(content_type=None)
-                if "error_code" in response_json:
-                    error_code = response_json.get("error_code")
-                    if error_code != 0 and error_code != "":
-                        _LOGGER.debug(
-                            "%s error_code=%s",
-                            context,
-                            error_code,
-                        )
-                        raise UnexpectedApiException(f"{context} error: {error_code}")
+                check_data_error_code(context, response_json)
 
                 if self._outer_id is not None:
                     return {"data": response_json}

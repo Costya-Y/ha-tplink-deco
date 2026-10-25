@@ -12,9 +12,20 @@ on:
 
 env:
   # Keep in sync with .devcontainer/devcontainer.json
-  DEFAULT_PYTHON: 3.12
+  DEFAULT_PYTHON: "3.14"
 
 jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Control and MCP regressions
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - run: pip install -r requirements.txt pycryptodome async-timeout
+      - run: pytest -o addopts='' -q tests
+
   pre-commit:
     runs-on: ubuntu-latest
     name: Pre-commit

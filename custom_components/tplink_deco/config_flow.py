@@ -23,6 +23,7 @@ from .const import CONF_CLIENT_POSTFIX
 from .const import CONF_CLIENT_PREFIX
 from .const import CONF_DECO_POSTFIX
 from .const import CONF_DECO_PREFIX
+from .const import CONF_ENABLE_AGENT_CONTROL
 from .const import CONF_LINK_CLIENT_DEVICES
 from .const import CONF_TIMEOUT_ERROR_RETRIES
 from .const import CONF_TIMEOUT_SECONDS
@@ -117,6 +118,10 @@ def _get_schema(data: dict[str:Any]):
             vol.Required(
                 CONF_LINK_CLIENT_DEVICES,
                 default=data.get(CONF_LINK_CLIENT_DEVICES, DEFAULT_LINK_CLIENT_DEVICES),
+            ): bool,
+            vol.Required(
+                CONF_ENABLE_AGENT_CONTROL,
+                default=data.get(CONF_ENABLE_AGENT_CONTROL, False),
             ): bool,
             vol.Optional(
                 CONF_CLIENT_PREFIX,

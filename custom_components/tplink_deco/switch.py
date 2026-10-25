@@ -3,6 +3,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import COORDINATOR_DECOS_KEY
 from .const import DOMAIN
@@ -17,16 +18,16 @@ async def async_setup_entry(
     """Set up switch."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR_DECOS_KEY]
 
-    async_add_entities([DecoPollingSwitch(coordinator)])
+    async_add_entities([DecoPollingSwitch(coordinator, config_entry)])
 
 
-class DecoPollingSwitch(SwitchEntity):
+class DecoPollingSwitch(CoordinatorEntity, SwitchEntity):
     """Switch to control Deco polling."""
 
-    def __init__(self, coordinator) -> None:
-        self.coordinator = coordinator
+    def __init__(self, coordinator, config_entry) -> None:
+        super().__init__(coordinator)
         self._attr_name = "Polling"
-        self._attr_unique_id = "tplink_deco_polling"
+        self._attr_unique_id = f"{config_entry.entry_id}_polling"
         self._attr_icon = "mdi:lan-connect"
 
     @property
@@ -43,10 +44,11 @@ class DecoPollingSwitch(SwitchEntity):
     async def async_turn_off(self, **kwargs):
         """Pause polling."""
         self.coordinator.paused = True
-        self.async_write_ha_state()
+        self.coordinator.async_set_updated_data(self.coordinator.data)
 
     async def async_turn_on(self, **kwargs):
         """Resume polling."""
         self.coordinator.paused = False
+        self.coordinator.async_set_updated_data(self.coordinator.data)
         await self.coordinator.async_request_refresh()
         self.async_write_ha_state()
