@@ -39,6 +39,19 @@ data:
   feature: inventory
 ```
 
+For a fresh client list, supply the router's required device selector:
+
+```yaml
+action: tplink_deco.query
+data:
+  feature: clients
+  params_json: '{"device_mac": "default"}'
+```
+
+Advanced reads can require feature-specific parameters even when their
+operation has a default. An empty-parameter read error is not proof that a
+feature is unavailable.
+
 Reserve an address (replace the example MAC and IP with your own):
 
 ```yaml

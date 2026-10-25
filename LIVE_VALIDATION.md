@@ -13,6 +13,11 @@ Passed:
   and returned three nodes.
 - Live reads of WLAN configuration (including IoT/MLO objects), client
   blocklist, DHCP reservations, fast roaming and beamforming.
+- Further successful reads: device mode, time settings, speed-test results,
+  internet status, performance, WAN information, VLAN configuration and the
+  160 MHz enable flag. Wireless-power information returned only its DFS
+  support flag, so transmit-power control remains unverified. A fresh client
+  list succeeded with `params_json: '{"device_mac":"default"}'`.
 - Polling pause, readback and restoration of the original enabled state.
 - Block and unblock of a synthetic MAC absent from the mesh/client/blocklist
   inventory. Both changes were read back and confirmed; the test entry was
@@ -21,11 +26,16 @@ Passed:
   authorization, schema serialization, routing, races and lost replies.
 - All repository pre-commit checks.
 
-Default read requests for `ofdma`, `wireless_support`, the standalone
-`mlo_network` form, `led`, `qos`, `qos_bandwidth` and `client_isolation` were
-rejected by the router. These failures do not establish that the hardware
-lacks the feature: a different supported payload or app/cloud protocol may
-be necessary. The combined `wlan` read does return MLO configuration.
+Default read requests were rejected for `ofdma`, `wireless_support`, the
+standalone `mlo_network` form, `led`, `qos`, `qos_bandwidth`,
+`client_isolation`, `wifi_schedule`, `bandwidth_switch`,
+`backhaul_optimization`, `network_optimize`, `eco_mode`, `dhcp_leases`,
+`lan`, `ipv6`, `upnp`, `static_routes`, `dhcp`, `parental_profiles`,
+`parental_filters`, `port_forwarding`, `dmz`, `ddns`, `vpn_client`,
+`vpn_server`, `ipv6_firewall` and `iptv`. These failures do not establish
+that the hardware lacks the feature: a different supported payload or
+app/cloud protocol may be necessary. The combined `wlan` read does return
+MLO configuration.
 
 Actual node reboots, changes to Wi-Fi/routing/firewall settings and live
 DHCP reservation writes were not exercised. Their protocol/validation tests
