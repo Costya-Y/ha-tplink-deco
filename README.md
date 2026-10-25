@@ -8,6 +8,7 @@ See [CONTROL.md](CONTROL.md) for installation, agent setup, action examples,
 supported endpoint categories and firmware limitations, and [REVIEW.md](REVIEW.md)
 for the source review. Requires HA 2026.10+. BE25/BE67 hardware validation is
 tracked separately from unit tests; full firmware coverage is not claimed.
+Current hardware results are in [LIVE_VALIDATION.md](LIVE_VALIDATION.md).
 
 Upstream monitoring documentation follows.
 

@@ -5,6 +5,7 @@ This fork extends `amosyuen/ha-tplink-deco`. It requires Home Assistant
 Support must be checked against the actual router firmware: the endpoint
 catalogue is protocol documentation, not a claim that every feature exists
 on every model. This is a prerelease until tested on the target hardware.
+See [LIVE_VALIDATION.md](LIVE_VALIDATION.md) for the tested BE25/BE67 subset.
 
 ## Home Assistant
 
