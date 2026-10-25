@@ -16,7 +16,8 @@
           "client_prefix": "Client name prefix",
           "client_postfix": "Client name postfix",
           "deco_prefix": "Deco name prefix",
-          "deco_postfix": "Deco name postfix"
+          "deco_postfix": "Deco name postfix",
+          "enable_agent_control": "Enable Deco tools for administrator AI agents (MCP)"
         }
       },
       "reauth_confirm": {
@@ -54,7 +55,8 @@
           "client_prefix": "Client name prefix",
           "client_postfix": "Client name postfix",
           "deco_prefix": "Deco name prefix",
-          "deco_postfix": "Deco name postfix"
+          "deco_postfix": "Deco name postfix",
+          "enable_agent_control": "Enable Deco tools for administrator AI agents (MCP)"
         }
       }
     },

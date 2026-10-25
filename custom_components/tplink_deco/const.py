@@ -48,6 +48,7 @@ CONF_LINK_CLIENT_DEVICES = "link_client_devices"
 CONF_TIMEOUT_ERROR_RETRIES = "timeout_error_retries"
 CONF_TIMEOUT_SECONDS = "timeout_seconds"
 CONF_VERIFY_SSL = "verify_ssl"
+CONF_ENABLE_AGENT_CONTROL = "enable_agent_control"
 
 # Signals
 SIGNAL_CLIENT_ADDED = f"{DOMAIN}-client-added"
@@ -58,4 +59,4 @@ SERVICE_REBOOT_DECO = "reboot_deco"
 SERVICE_PAUSE_POLLING = "pause_polling"
 SERVICE_RESUME_POLLING = "resume_polling"
 # Platforms
-PLATFORMS = ["device_tracker", "sensor", "binary_sensor", "switch", "select"]
+PLATFORMS = ["device_tracker", "sensor", "binary_sensor", "switch", "select", "button"]

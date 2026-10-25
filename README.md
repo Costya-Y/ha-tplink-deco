@@ -1,4 +1,16 @@
-# TP-Link Deco
+# TP-Link Deco — Home Assistant controls and MCP
+
+This fork adds client blocking/renaming, DHCP reservations, Wi-Fi toggles,
+per-node reboot buttons, advanced configuration actions and an opt-in
+administrator tool API for Home Assistant's native MCP server.
+
+See [CONTROL.md](CONTROL.md) for installation, agent setup, action examples,
+supported endpoint categories and firmware limitations, and [REVIEW.md](REVIEW.md)
+for the source review. Requires HA 2026.10+. BE25/BE67 hardware validation is
+tracked separately from unit tests; full firmware coverage is not claimed.
+Current hardware results are in [LIVE_VALIDATION.md](LIVE_VALIDATION.md).
+
+Upstream monitoring documentation follows.
 
 [![GitHub Release](https://img.shields.io/github/v/release/amosyuen/ha-tplink-deco?style=for-the-badge)](https://github.com/amosyuen/ha-tplink-deco/releases)
 [![GitHub Activity](https://img.shields.io/github/commit-activity/y/amosyuen/ha-tplink-deco?style=for-the-badge)](https://github.com/amosyuen/ha-tplink-deco/commits/main)

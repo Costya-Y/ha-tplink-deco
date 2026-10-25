@@ -9,7 +9,6 @@ import asyncio
 from datetime import timedelta
 import logging
 from typing import Any
-from typing import cast
 
 from homeassistant.components.device_tracker.const import (
     DOMAIN as DEVICE_TRACKER_DOMAIN,
@@ -17,19 +16,15 @@ from homeassistant.components.device_tracker.const import (
 from homeassistant.components.device_tracker.const import CONF_CONSIDER_HOME
 from homeassistant.components.device_tracker.const import CONF_SCAN_INTERVAL
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_DEVICE_ID
 from homeassistant.const import CONF_HOST
 from homeassistant.const import CONF_PASSWORD
 from homeassistant.const import CONF_USERNAME
 from homeassistant.core import HomeAssistant
-from homeassistant.core import ServiceCall
-from homeassistant.helpers import device_registry
 from homeassistant.helpers import entity_registry
+from homeassistant.helpers import llm as ha_llm
 from homeassistant.helpers import restore_state
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.device_registry import DeviceEntry
-import voluptuous as vol
 
 from .api import TplinkDecoApi
 from .api import normalize_name
@@ -38,6 +33,7 @@ from .const import CONF_CLIENT_POSTFIX
 from .const import CONF_CLIENT_PREFIX
 from .const import CONF_DECO_POSTFIX
 from .const import CONF_DECO_PREFIX
+from .const import CONF_ENABLE_AGENT_CONTROL
 from .const import CONF_LINK_CLIENT_DEVICES
 from .const import CONF_TIMEOUT_ERROR_RETRIES
 from .const import CONF_TIMEOUT_SECONDS
@@ -53,14 +49,16 @@ from .const import DEFAULT_TIMEOUT_SECONDS
 from .const import DEVICE_TYPE_DECO
 from .const import DOMAIN
 from .const import PLATFORMS
-from .const import SERVICE_PAUSE_POLLING
-from .const import SERVICE_REBOOT_DECO
-from .const import SERVICE_RESUME_POLLING
+from .control import DecoControl
 from .coordinator import TpLinkDeco
 from .coordinator import TpLinkDecoClient
 from .coordinator import TpLinkDecoData
 from .coordinator import TplinkDecoClientUpdateCoordinator
 from .coordinator import TplinkDecoUpdateCoordinator
+from .llm import DecoAPI
+from .services import CONTROL_KEY
+from .services import async_register_services
+from .services import async_unregister_services
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -110,6 +108,7 @@ async def async_create_and_refresh_coordinators(
     return {
         COORDINATOR_DECOS_KEY: deco_coordinator,
         COORDINATOR_CLIENTS_KEY: clients_coordinator,
+        CONTROL_KEY: DecoControl(api),
     }
 
 
@@ -175,6 +174,7 @@ async def async_pause_polling(hass: HomeAssistant, config_entry: ConfigEntry) ->
         return
 
     coordinator_decos.paused = True
+    coordinator_decos.async_set_updated_data(coordinator_decos.data)
     _LOGGER.info("TP-Link Deco polling paused")
 
 
@@ -187,6 +187,7 @@ async def async_resume_polling(hass: HomeAssistant, config_entry: ConfigEntry) -
         return
 
     coordinator_decos.paused = False
+    coordinator_decos.async_set_updated_data(coordinator_decos.data)
     _LOGGER.info("TP-Link Deco polling resumed")
     await coordinator_decos.async_request_refresh()
 
@@ -200,8 +201,17 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
 
     data = await async_create_config_data(hass, config_entry)
     hass.data[DOMAIN][config_entry.entry_id] = data
-    deco_coordinator = data[COORDINATOR_DECOS_KEY]
     clients_coordinator = data[COORDINATOR_CLIENTS_KEY]
+
+    # Preserve the original polling entity ID while making its unique ID per-entry.
+    registry = entity_registry.async_get(hass)
+    for entry in entity_registry.async_entries_for_config_entry(
+        registry, config_entry.entry_id
+    ):
+        if entry.domain == "switch" and entry.unique_id == "tplink_deco_polling":
+            registry.async_update_entity(
+                entry.entity_id, new_unique_id=f"{config_entry.entry_id}_polling"
+            )
 
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
 
@@ -211,53 +221,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
         name="tplink_deco initial client refresh",
     )
 
-    async def async_reboot_deco(service: ServiceCall) -> None:
-        dr = device_registry.async_get(hass=hass)
-        device_ids = cast([str], service.data.get(ATTR_DEVICE_ID))
-        macs = []
-        for device_id in device_ids:
-            device = dr.async_get(device_id)
-            if device is None:
-                raise Exception(f"Device ID {device_id} is not a TP-Link Deco device")
-            ids = device.identifiers
-            id = next(iter(ids)) if len(ids) == 1 else None
-            if id[0] != DOMAIN:
-                raise Exception(
-                    f"Device ID {device_id} does not have {DOMAIN} MAC identifier"
-                )
-            macs.append(id[1])
-        await deco_coordinator.api.async_reboot_decos(macs)
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_REBOOT_DECO,
-        async_reboot_deco,
-        schema=vol.Schema(
-            {
-                vol.Required(ATTR_DEVICE_ID): vol.All(cv.ensure_list(str), [str]),
-            }
-        ),
-    )
-
-    async def handle_pause_polling(service: ServiceCall) -> None:
-        """Handle pause polling service."""
-        await async_pause_polling(hass, config_entry)
-
-    async def handle_resume_polling(service: ServiceCall) -> None:
-        """Handle resume polling service."""
-        await async_resume_polling(hass, config_entry)
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_PAUSE_POLLING,
-        handle_pause_polling,
-    )
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_RESUME_POLLING,
-        handle_resume_polling,
-    )
+    async_register_services(hass)
+    if config_entry.data.get(CONF_ENABLE_AGENT_CONTROL, False):
+        config_entry.async_on_unload(
+            ha_llm.async_register_api(hass, DecoAPI(hass, config_entry))
+        )
 
     config_entry.async_on_unload(config_entry.add_update_listener(update_listener))
 
@@ -297,8 +265,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
 
     if unloaded:
         hass.data[DOMAIN].pop(config_entry.entry_id, None)
-        hass.services.async_remove(DOMAIN, SERVICE_PAUSE_POLLING)
-        hass.services.async_remove(DOMAIN, SERVICE_RESUME_POLLING)
+        async_unregister_services(hass)
 
     return unloaded
 
