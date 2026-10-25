@@ -8,6 +8,7 @@ on:
 
 jobs:
   labeler:
+    if: github.repository == 'amosyuen/ha-tplink-deco'
     name: Labeler
     runs-on: ubuntu-latest
     steps:
